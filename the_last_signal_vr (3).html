@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>THE LAST SIGNAL - VR HORROR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+        }
+        
+        /* CRT overlay effect for menu screen */
+        .crt {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #180808 0%, #000 100%);
+            z-index: 20;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 4rem);
+            color: #ff3333;
+            text-shadow: 0 0 15px #ff0000;
+            margin: 0 0 10px 0;
+            letter-spacing: 4px;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1rem;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .instructions {
+            background: rgba(20, 0, 0, 0.6);
+            border: 1px solid #ff3333;
+            padding: 20px;
+            max-width: 650px;
+            width: 100%;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            text-align: left;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .instructions strong {
+            color: #ff6666;
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 18px 25px;
+            font-size: 1.2rem;
+            background: #ff3333;
+            color: #000;
+            border: 2px solid #ff6666;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+            border-radius: 4px;
+        }
+
+        .action-btn:hover {
+            background-color: #ff6666;
+            box-shadow: 0 0 30px #ff0000;
+            transform: scale(1.02);
+        }
+
+        #https-warning {
+            display: none;
+            color: #ffaa00;
+            border: 1px solid #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            max-width: 600px;
+        }
+
+        #game-over {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000;
+            z-index: 100;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-over h1 {
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            animation: glitch 0.2s infinite;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 8px; height: 8px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-3px, 3px) }
+            40% { transform: translate(-3px, -3px) }
+            60% { transform: translate(3px, 3px) }
+            80% { transform: translate(3px, -3px) }
+            100% { transform: translate(0) }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="crt"></div>
+    <div id="crosshair"></div>
+
+    <div id="ui-layer">
+        <h1>THE LAST SIGNAL</h1>
+        <div class="subtitle">Deep Space Facility // Emergency Protocol</div>
+
+        <div id="https-warning">
+            ⚠️ <strong>VR MODE NOTICE:</strong> WebXR requires an HTTPS connection. If you are on an HTTP URL, the "ENTER VR" button may be disabled or un-clickable by your browser.
+        </div>
+
+        <div class="instructions">
+            <strong>OBJECTIVE:</strong> Search the complex to locate and activate <strong>3 Signal Terminals</strong>. Once active, locate the green Exit Door.<br><br>
+            <strong>META QUEST CONTROLS:</strong><br>
+            • <strong>Left Stick:</strong> Smooth Locomotion.<br>
+            • <strong>Right Controller:</strong> Aim Flashlight / Laser.<br>
+            • <strong>Right Trigger:</strong> Interoperability / Activate Green Terminals.<br><br>
+            <strong>DESKTOP / NON-VR FALLBACK:</strong><br>
+            • <strong>WASD / Arrow Keys:</strong> Move around.<br>
+            • <strong>Mouse:</strong> Look around.<br>
+            • <strong>Left Click:</strong> Interact with green terminals.
+        </div>
+
+        <div class="btn-container">
+            <button id="vr-btn" class="action-btn">ENTER VR (QUEST 3S)</button>
+            <button id="desktop-btn" class="action-btn" style="background:#444; color:#fff; border-color:#666;">PLAY DESKTOP MODE</button>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <h1 id="death-text">SIGNAL LOST</h1>
+        <p id="death-subtext" style="color:#aaa; font-size:1.2rem; margin-bottom:30px;">You have been consumed by the dark.</p>
+        <button class="action-btn" style="width: auto;" onclick="location.reload()">REBOOT PROTOCOL</button>
+    </div>
+
+    <script>
+        // --- AUDIO ENGINE ---
+        let audioCtx = null;
+        const sfx = {};
+        
+        function initAudio() {
+            if (audioCtx) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            // Heartbeat Synth
+            sfx.heartbeat = () => {
+                if (!audioCtx || audioCtx.state !== 'running') return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(45, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(25, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+            };
+
+            // Drone Synth (Ambient Dread)
+            try {
+                sfx.droneGain = audioCtx.createGain();
+                sfx.droneGain.gain.value = 0.08;
+                sfx.droneGain.connect(audioCtx.destination);
+                const droneOsc = audioCtx.createOscillator();
+                droneOsc.type = 'sawtooth';
+                droneOsc.frequency.value = 50; 
+                droneOsc.connect(sfx.droneGain);
+                droneOsc.start();
+            } catch(e) {}
+
+            // Scare Synth
+            sfx.scare = () => {
+                if (!audioCtx || audioCtx.state !== 'running') return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(90, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.1);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+            };
+
+            // Terminal Active Sound
+            sfx.terminal = () => {
+                if (!audioCtx || audioCtx.state !== 'running') return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+            };
+        }
+
+        // Check HTTPS status
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            document.getElementById('https-warning').style.display = 'block';
+        }
+
+        let scene, camera, renderer, cameraGroup;
+        let rightController, leftController;
+        let raycaster, flashlight;
+        let clock;
+        let gameActive = false;
+        let isVR = false;
+        
+        const walls = [];
+        const terminals = [];
+        let signalsActive = 0;
+        let exitDoor = null;
+
+        // Desktop controls state
+        const keys = { w: false, a: false, s: false, d: false };
+        let desktopEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+        // Map layout (0=Floor, 1=Wall, 2=Terminal, 3=Exit)
+        const map = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,2,0,0,1],
+            [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
+            [1,0,1,0,0,0,1,2,1,0,0,0,1,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1],
+            [1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,1,0,1],
+            [1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,1],
+            [1,0,1,0,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1],
+            [1,0,1,0,0,0,0,0,1,2,1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+            [1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+            [1,0,0,0,1,0,1,0,0,0,0,0,0,0,0,1,0,1,0,1],
+            [1,0,1,0,1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1],
+            [1,0,1,0,1,0,1,0,1,3,0,0,0,1,0,1,0,0,0,1],
+            [1,0,1,0,0,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1],
+            [1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        document.getElementById('vr-btn').addEventListener('click', () => {
+            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            startVRGame();
+        });
+
+        document.getElementById('desktop-btn').addEventListener('click', () => {
+            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            startDesktopGame();
+        });
+
+        function startVRGame() {
+            if (!navigator.xr) {
+                alert("WebXR API is not supported on this browser or connection. Make sure you are using Meta Quest Browser via HTTPS.");
+                return;
+            }
+
+            navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                if (supported) {
+                    initScene();
+                    navigator.xr.requestSession('immersive-vr', {
+                        optionalFeatures: ['local-floor', 'bounded-floor']
+                    }).then((session) => {
+                        renderer.xr.setSession(session);
+                        document.getElementById('ui-layer').style.display = 'none';
+                        document.querySelector('.crt').style.display = 'none';
+                        isVR = true;
+                        gameActive = true;
+
+                        session.addEventListener('end', () => {
+                            gameActive = false;
+                            document.getElementById('ui-layer').style.display = 'flex';
+                            document.querySelector('.crt').style.display = 'block';
+                        });
+                    }).catch((err) => {
+                        alert("Could not start VR Session: " + err.message);
+                    });
+                } else {
+                    alert("Immersive VR is not supported on this device. Playing in Desktop Mode instead.");
+                    startDesktopGame();
+                }
+            });
+        }
+
+        function startDesktopGame() {
+            initScene();
+            document.getElementById('ui-layer').style.display = 'none';
+            document.querySelector('.crt').style.display = 'none';
+            document.getElementById('crosshair').style.display = 'block';
+            isVR = false;
+            gameActive = true;
+
+            // Request Pointer Lock for mouse controls
+            document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+            document.body.requestPointerLock();
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'w' || e.key === 'W') keys.w = true;
+                if (e.key === 'a' || e.key === 'A') keys.a = true;
+                if (e.key === 's' || e.key === 'S') keys.s = true;
+                if (e.key === 'd' || e.key === 'D') keys.d = true;
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'w' || e.key === 'W') keys.w = false;
+                if (e.key === 'a' || e.key === 'A') keys.a = false;
+                if (e.key === 's' || e.key === 'S') keys.s = false;
+                if (e.key === 'd' || e.key === 'D') keys.d = false;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement === document.body) {
+                    desktopEuler.y -= e.movementX * 0.002;
+                    desktopEuler.x -= e.movementY * 0.002;
+                    desktopEuler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, desktopEuler.x));
+                    camera.quaternion.setFromEuler(desktopEuler);
+                }
+            });
+
+            window.addEventListener('click', () => {
+                if (gameActive && !isVR) {
+                    triggerInteraction();
+                }
+            });
+        }
+
+        function initScene() {
+            if (scene) return; // Prevent duplicate initialization
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            scene.fog = new THREE.FogExp2(0x000000, 0.12);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            cameraGroup = new THREE.Group();
+            cameraGroup.position.set(2, 1.6, 2);
+            scene.add(cameraGroup);
+            cameraGroup.add(camera);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            // Controllers
+            leftController = renderer.xr.getController(0);
+            cameraGroup.add(leftController);
+
+            rightController = renderer.xr.getController(1);
+            cameraGroup.add(rightController);
+
+            // Controller Visual Models
+            const controllerGeo = new THREE.BoxGeometry(0.05, 0.05, 0.15);
+            const controllerMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+            const rightMesh = new THREE.Mesh(controllerGeo, controllerMat);
+            rightController.add(rightMesh);
+
+            // Flashlight Attachment
+            flashlight = new THREE.SpotLight(0xfff0e0, 2.5);
+            flashlight.position.set(0, 0, 0);
+            flashlight.angle = Math.PI / 6;
+            flashlight.penumbra = 0.5;
+            flashlight.decay = 2;
+            flashlight.distance = 22;
+
+            const flashlightTarget = new THREE.Object3D();
+            flashlightTarget.position.set(0, 0, -1);
+            
+            // Attach flashlight to right controller for VR, or camera for Desktop
+            if (isVR) {
+                rightController.add(flashlightTarget);
+                rightController.add(flashlight);
+                flashlight.target = flashlightTarget;
+            } else {
+                camera.add(flashlightTarget);
+                camera.add(flashlight);
+                flashlight.target = flashlightTarget;
+            }
+
+            // Laser Pointer for Right Controller in VR
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -5)
+            ]);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.4 });
+            const laser = new THREE.Line(lineGeo, lineMat);
+            rightController.add(laser);
+
+            raycaster = new THREE.Raycaster();
+
+            rightController.addEventListener('selectstart', () => {
+                if (gameActive && isVR) triggerInteraction();
+            });
+
+            buildLevel();
+            spawnMonsters();
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.setAnimationLoop(render);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function createNoiseTexture(colorBase, noiseLevel) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            for(let i=0; i<128; i++) {
+                for(let j=0; j<128; j++) {
+                    let v = colorBase + (Math.random() * noiseLevel - noiseLevel/2);
+                    v = Math.max(0, Math.min(255, v));
+                    ctx.fillStyle = `rgb(${v},${v},${v})`;
+                    ctx.fillRect(i,j,1,1);
+                }
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(2, 2);
+            return tex;
+        }
+
+        function buildLevel() {
+            const tileSize = 2;
+            const wallHeight = 3;
+            const wallGeo = new THREE.BoxGeometry(tileSize, wallHeight, tileSize);
+            
+            const wallTex = createNoiseTexture(30, 20);
+            const floorTex = createNoiseTexture(15, 10);
+            const wallMat = new THREE.MeshLambertMaterial({ color: 0x444444, map: wallTex });
+            const floorMat = new THREE.MeshLambertMaterial({ color: 0x222222, map: floorTex });
+            
+            const floorGeo = new THREE.PlaneGeometry(map[0].length * tileSize, map.length * tileSize);
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.set((map[0].length * tileSize)/2 - tileSize/2, 0, (map.length * tileSize)/2 - tileSize/2);
+            scene.add(floor);
+
+            const ceiling = new THREE.Mesh(floorGeo, floorMat);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.set((map[0].length * tileSize)/2 - tileSize/2, wallHeight, (map.length * tileSize)/2 - tileSize/2);
+            scene.add(ceiling);
+
+            scene.add(new THREE.AmbientLight(0x111111));
+
+            for(let z=0; z<map.length; z++) {
+                for(let x=0; x<map[z].length; x++) {
+                    const type = map[z][x];
+                    const px = x * tileSize;
+                    const pz = z * tileSize;
+
+                    if (type === 1) { // Wall
+                        const wall = new THREE.Mesh(wallGeo, wallMat);
+                        wall.position.set(px, wallHeight/2, pz);
+                        scene.add(wall);
+                        
+                        const box = new THREE.Box3().setFromObject(wall);
+                        walls.push(box);
+                    } 
+                    else if (type === 2) { // Terminal
+                        const termGeo = new THREE.BoxGeometry(0.8, 1.2, 0.8);
+                        const termMat = new THREE.MeshBasicMaterial({ color: 0x00aa00 });
+                        const term = new THREE.Mesh(termGeo, termMat);
+                        term.position.set(px, 0.6, pz);
+                        
+                        const termLight = new THREE.PointLight(0x00ff00, 1, 3);
+                        termLight.position.set(0, 0.5, 0);
+                        term.add(termLight);
+
+                        term.userData = { isTerminal: true, active: false };
+                        scene.add(term);
+                        terminals.push(term);
+                    }
+                    else if (type === 3) { // Exit
+                        const exitGeo = new THREE.BoxGeometry(tileSize, wallHeight, 0.2);
+                        const exitMat = new THREE.MeshBasicMaterial({ color: 0x550000 });
+                        exitDoor = new THREE.Mesh(exitGeo, exitMat);
+                        exitDoor.position.set(px, wallHeight/2, pz);
+                        scene.add(exitDoor);
+                        
+                        const eBox = new THREE.Box3().setFromObject(exitDoor);
+                        walls.push(eBox);
+                        exitDoor.userData = { box: eBox };
+                    }
+                }
+            }
+        }
+
+        function triggerInteraction() {
+            let rayOrigin, rayDir;
+
+            if (isVR) {
+                const tempMatrix = new THREE.Matrix4();
+                tempMatrix.extractRotation(rightController.matrixWorld);
+                rayOrigin = new THREE.Vector3().setFromMatrixPosition(rightController.matrixWorld);
+                rayDir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
+            } else {
+                rayOrigin = cameraGroup.position.clone();
+                rayDir = new THREE.Vector3();
+                camera.getWorldDirection(rayDir);
+            }
+
+            raycaster.set(rayOrigin, rayDir);
+            
+            const intersects = raycaster.intersectObjects(terminals);
+            if (intersects.length > 0) {
+                const obj = intersects[0].object;
+                if (obj.userData.isTerminal && !obj.userData.active && intersects[0].distance < 4.5) {
+                    obj.userData.active = true;
+                    obj.material.color.setHex(0x0000ff); // Turns Blue
+                    obj.children[0].color.setHex(0x0000ff);
+                    sfx.terminal();
+                    signalsActive++;
+                    
+                    if(signalsActive >= 3) {
+                        activateExit();
+                    }
+                }
+            }
+        }
+
+        function activateExit() {
+            if (!exitDoor) return;
+            exitDoor.material.color.setHex(0x00ff00); // Door turns green
+            const idx = walls.indexOf(exitDoor.userData.box);
+            if(idx > -1) walls.splice(idx, 1);
+            sfx.terminal();
+        }
+
+        const monsters = [];
+        
+        function spawnMonsters() {
+            // 1. Stalker (Approaches when unobserved)
+            const stalkerGeo = new THREE.CylinderGeometry(0.4, 0.4, 2.5, 8);
+            const stalkerMat = new THREE.MeshBasicMaterial({ color: 0x111111, wireframe: true });
+            const stalker = new THREE.Mesh(stalkerGeo, stalkerMat);
+            stalker.position.set(30, 1.25, 30);
+            
+            const eyeGeo = new THREE.SphereGeometry(0.1);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const eyes = new THREE.Mesh(eyeGeo, eyeMat);
+            eyes.position.set(0, 1, 0.4);
+            stalker.add(eyes);
+            
+            stalker.userData = { type: 'stalker', speed: 1.6 };
+            scene.add(stalker);
+            monsters.push(stalker);
+
+            // 2. Glitch (Teleports, avoids flashlight)
+            const glitchGeo = new THREE.IcosahedronGeometry(0.6, 1);
+            const glitchMat = new THREE.MeshBasicMaterial({ color: 0x8800ff, wireframe: true });
+            const glitch = new THREE.Mesh(glitchGeo, glitchMat);
+            glitch.position.set(10, 1, 30);
+            glitch.userData = { type: 'glitch', timer: 0 };
+            scene.add(glitch);
+            monsters.push(glitch);
+
+            // 3. Hunter (Senses rapid player movement)
+            const hunterGeo = new THREE.TorusKnotGeometry(0.5, 0.1, 64, 8);
+            const hunterMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const hunter = new THREE.Mesh(hunterGeo, hunterMat);
+            hunter.position.set(30, 1, 10);
+            hunter.userData = { type: 'hunter', speed: 0.5, hunting: false };
+            scene.add(hunter);
+            monsters.push(hunter);
+        }
+
+        function getDistance(v1, v2) {
+            const dx = v1.x - v2.x;
+            const dz = v1.z - v2.z;
+            return Math.sqrt(dx*dx + dz*dz);
+        }
+
+        let lastHeartbeat = 0;
+        let isDead = false;
+
+        function render() {
+            if (!gameActive || isDead) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const dt = clock.getDelta();
+            const playerPos = cameraGroup.position;
+            let moveSpeed = 0;
+
+            // --- LOCOMOTION CONTROLS ---
+            if (isVR) {
+                const session = renderer.xr.getSession();
+                if (session && session.inputSources) {
+                    for (const source of session.inputSources) {
+                        if (source.gamepad && source.handedness === 'left') {
+                            const xAxis = source.gamepad.axes[2];
+                            const yAxis = source.gamepad.axes[3];
+                            
+                            if (Math.abs(xAxis) > 0.1 || Math.abs(yAxis) > 0.1) {
+                                moveSpeed = Math.sqrt(xAxis*xAxis + yAxis*yAxis);
+                                
+                                const camDir = new THREE.Vector3();
+                                camera.getWorldDirection(camDir);
+                                camDir.y = 0; camDir.normalize();
+                                
+                                const camRight = new THREE.Vector3();
+                                camRight.crossVectors(camera.up, camDir).normalize();
+                                
+                                const proposedPos = playerPos.clone();
+                                proposedPos.add(camDir.multiplyScalar(-yAxis * 2.2 * dt));
+                                proposedPos.add(camRight.multiplyScalar(xAxis * 2.2 * dt));
+
+                                checkAndApplyMove(proposedPos, playerPos);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Desktop Locomotion
+                const dir = new THREE.Vector3();
+                if (keys.w) dir.z -= 1;
+                if (keys.s) dir.z += 1;
+                if (keys.a) dir.x -= 1;
+                if (keys.d) dir.x += 1;
+                dir.normalize();
+
+                if (dir.length() > 0) {
+                    moveSpeed = 1;
+                    const camDir = new THREE.Vector3();
+                    camera.getWorldDirection(camDir);
+                    camDir.y = 0; camDir.normalize();
+
+                    const camRight = new THREE.Vector3();
+                    camRight.crossVectors(camera.up, camDir).normalize();
+
+                    const proposedPos = playerPos.clone();
+                    proposedPos.add(camDir.multiplyScalar(-dir.z * 3.0 * dt));
+                    proposedPos.add(camRight.multiplyScalar(dir.x * 3.0 * dt));
+
+                    checkAndApplyMove(proposedPos, playerPos);
+                }
+            }
+
+            // Flashlight random flicker
+            flashlight.intensity = (Math.random() > 0.98) ? Math.random() * 2.5 : 2.5;
+
+            // Get orientation vectors
+            const lookDir = new THREE.Vector3();
+            camera.getWorldDirection(lookDir);
+
+            let lightDir = lookDir.clone();
+            if (isVR) {
+                const tempM = new THREE.Matrix4();
+                tempM.extractRotation(rightController.matrixWorld);
+                lightDir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempM);
+            }
+
+            let closestDist = 999;
+
+            // --- MONSTER AI LOOP ---
+            monsters.forEach(m => {
+                const dist = getDistance(playerPos, m.position);
+                if (dist < closestDist) closestDist = dist;
+
+                const dirToPlayer = new THREE.Vector3().subVectors(playerPos, m.position).normalize();
+
+                // Death Condition
+                if (dist < 0.8) {
+                    triggerDeath();
+                }
+
+                if (m.userData.type === 'stalker') {
+                    const dotProd = lookDir.dot(new THREE.Vector3().subVectors(m.position, playerPos).normalize());
+                    m.lookAt(playerPos.x, m.position.y, playerPos.z);
+                    if (dotProd < 0.4 || dist > 14) { 
+                        m.position.add(dirToPlayer.multiplyScalar(m.userData.speed * dt));
+                    }
+                } 
+                else if (m.userData.type === 'glitch') {
+                    m.userData.timer += dt;
+                    m.rotation.x += dt;
+                    m.rotation.y += dt;
+
+                    const toGlitch = new THREE.Vector3().subVectors(m.position, playerPos).normalize();
+                    const lightDot = lightDir.dot(toGlitch);
+
+                    if (lightDot > 0.82 && dist < 12) {
+                        m.position.set(playerPos.x + (Math.random()-0.5)*20, 1, playerPos.z + (Math.random()-0.5)*20);
+                        m.userData.timer = 0;
+                    } else if (m.userData.timer > 5) {
+                        m.position.set(playerPos.x + (Math.random()-0.5)*10, 1, playerPos.z + (Math.random()-0.5)*10);
+                        m.userData.timer = 0;
+                    }
+                }
+                else if (m.userData.type === 'hunter') {
+                    m.rotation.z += dt * 4;
+                    if (moveSpeed > 0.4) {
+                        m.userData.hunting = true;
+                        m.userData.speed = 3.2;
+                    } else {
+                        m.userData.hunting = false;
+                        m.userData.speed = 0.6;
+                    }
+                    
+                    if (m.userData.hunting) {
+                        m.position.add(dirToPlayer.multiplyScalar(m.userData.speed * dt));
+                    } else {
+                        m.position.x += Math.sin(clock.elapsedTime) * dt * 0.5;
+                        m.position.z += Math.cos(clock.elapsedTime * 0.8) * dt * 0.5;
+                    }
+                }
+            });
+
+            // Dynamic Audio Heartbeat Rate
+            const timeSinceBeat = clock.elapsedTime - lastHeartbeat;
+            let beatInterval = 2.0; 
+            if (closestDist < 12) {
+                beatInterval = Math.max(0.3, closestDist / 10);
+            }
+            if (timeSinceBeat > beatInterval) {
+                sfx.heartbeat();
+                lastHeartbeat = clock.elapsedTime;
+            }
+
+            // Win Condition Check
+            if (signalsActive >= 3 && exitDoor) {
+                const exitDist = getDistance(playerPos, exitDoor.position);
+                if (exitDist < 2) {
+                    triggerWin();
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function checkAndApplyMove(proposedPos, currentPos) {
+            const playerRadius = 0.35;
+            const pBox = new THREE.Box3(
+                new THREE.Vector3(proposedPos.x - playerRadius, 0, proposedPos.z - playerRadius),
+                new THREE.Vector3(proposedPos.x + playerRadius, 2, proposedPos.z + playerRadius)
+            );
+
+            let collision = false;
+            for(let i = 0; i < walls.length; i++) {
+                if(pBox.intersectsBox(walls[i])) {
+                    collision = true;
+                    break;
+                }
+            }
+
+            if(!collision) {
+                cameraGroup.position.copy(proposedPos);
+            }
+        }
+
+        function triggerDeath() {
+            isDead = true;
+            sfx.scare();
+            
+            scene.background = new THREE.Color(0xff0000);
+            setTimeout(() => {
+                if (renderer.xr.isPresenting) {
+                    const session = renderer.xr.getSession();
+                    if(session) session.end();
+                }
+                document.getElementById('crosshair').style.display = 'none';
+                document.getElementById('game-over').style.display = 'flex';
+            }, 600);
+        }
+
+        function triggerWin() {
+            isDead = true;
+            if (renderer.xr.isPresenting) {
+                const session = renderer.xr.getSession();
+                if(session) session.end();
+            }
+            
+            document.getElementById('crosshair').style.display = 'none';
+            const goScreen = document.getElementById('game-over');
+            goScreen.style.display = 'flex';
+            document.getElementById('death-text').innerText = "SIGNAL TRANSMITTED";
+            document.getElementById('death-text').style.color = "#00ff00";
+            document.getElementById('death-subtext').innerText = "Rescue extraction requested. You survived.";
+        }
+    </script>
+</body>
+</html>
